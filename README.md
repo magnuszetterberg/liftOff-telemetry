@@ -1,0 +1,3 @@
+Simple integration against the FPV game Liftoff. 
+
+main.py listens to udp port 127.0.0.1:9001 and digs out data from it and presents it to opencv, which shows it in it's own window...
