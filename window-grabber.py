@@ -1,56 +1,59 @@
+
 import cv2
-import subprocess
 import numpy as np
-import json
+import subprocess
+import threading
 
-# Ask the user for the display number they want to capture
-display_number = input("Enter display number (e.g., :0, :1): ")
+def read_frames(process, frame_size, frame_queue):
+    while True:
+        raw_frame = process.stdout.read(frame_size)
+        if len(raw_frame) != frame_size:
+            break
+        frame = np.frombuffer(raw_frame, np.uint8).reshape((frame_height, frame_width, 3))
+        frame_queue.append(frame)
 
-def click_and_capture(display_number):
-    print(f"Click on a window on display {display_number} and press Enter when you're done.")
-    input()
-    
-    # Get the current time
-    import time
-    current_time = int(time.time())
-    
-    # Wait for 2 seconds to allow the user to interact with the window
-    time.sleep(2)
-    
-    # Use wlprop to get the window's ID
-    cmd = f"wlprop --display {display_number} --get 'active_window'"
-    output = subprocess.check_output(cmd, shell=True).decode('utf-8')
-    import json
-    data = json.loads(output)
-    
-    if "None" in data:
-        print("No matching window found")
-        return None
-    
-    # Get the window's ID from the output
-    window_id = int(data['window'])
-    
-    # Capture the window
-    cmd = f"wlprop --display {display_number} --get 'window {window_id}'"
-    output = subprocess.check_output(cmd, shell=True)
-    frame = np.frombuffer(output, dtype=np.uint8)
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-    
-    # Print window properties
-    print("Window Properties:")
-    for key, value in data.items():
-        if isinstance(value, dict):
-            print(f"{key}:")
-            for k, v in value.items():
-                print(f" {k}: {v}")
-        else:
-            print(f"{key}: {value}")
-    
-    # Display the captured window
-    cv2.imshow('Region', frame)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+def display_frames(frame_queue):
+    while True:
+        if frame_queue:
+            frame = frame_queue.pop(0)
+            cv2.imshow('Image from FIFO', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
-data = click_and_capture(display_number)
-if data is not None:
-    pass  # No need to do anything here as wlprop will output the requested information directly
+# Define the ffmpeg command with optimized settings
+ffmpeg_cmd = [
+    'ffmpeg',
+    '-flags', 'low_delay',
+    '-i', '/tmp/wf-record.pipe',
+    '-f', 'rawvideo',
+    '-pix_fmt', 'bgr24',
+    '-vcodec', 'rawvideo',
+    '-fflags', 'nobuffer',
+    '-flags', 'low_delay',
+    '-analyzeduration', '0',
+    '-probesize', '32',
+    'pipe:1'
+]
+
+# Start the ffmpeg process
+process = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE, bufsize=10**8)
+
+# Define the frame size and initialize a queue for frames
+frame_width = 1920
+frame_height = 1200
+frame_size = frame_width * frame_height * 3
+frame_queue = []
+
+# Start threads for reading and displaying frames
+read_thread = threading.Thread(target=read_frames, args=(process, frame_size, frame_queue))
+display_thread = threading.Thread(target=display_frames, args=(frame_queue,))
+
+read_thread.start()
+display_thread.start()
+
+read_thread.join()
+display_thread.join()
+
+# Clean up
+cv2.destroyAllWindows()
+process.terminate()
