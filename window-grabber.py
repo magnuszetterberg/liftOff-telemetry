@@ -20,15 +20,16 @@ def display_frames(frame_queue):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-# Define the ffmpeg command with optimized settings
+# Define the ffmpeg command with an input framerate
+input_framerate = '30'  # Example: 30 frames per second
 ffmpeg_cmd = [
     'ffmpeg',
+   # '-r', input_framerate,  # Specify the input framerate
     '-flags', 'low_delay',
     '-i', '/tmp/wf-record.pipe',
     '-f', 'rawvideo',
     '-pix_fmt', 'bgr24',
     '-vcodec', 'rawvideo',
-    '-fflags', 'nobuffer',
     '-flags', 'low_delay',
     '-analyzeduration', '0',
     '-probesize', '32',

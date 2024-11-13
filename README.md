@@ -8,3 +8,4 @@ main.py listens to udp port 127.0.0.1:9001 and digs out data from it and present
 
 create a stream to a a fifo with this command from your laptop
 wf-recorder -o eDP-1 -y -f /tmp/wf-record.pipe --muxer matroska -g 30 -bufsize 64k
+wf-recorder -o eDP-1 -y -f /tmp/wf-record.pipe --muxer matroska -g 30 -bufsize 64k -r 30
